@@ -183,7 +183,7 @@ MultimediaConsumer<Parent>::StopApplication() // Called at time specified by Sto
 {
   NS_LOG_FUNCTION_NOARGS();
 
-  fprintf(stderr, "Client(%d): Stopping...\n", super::node_id);
+  fprintf(stderr, "Client(%d): Stopping app...\n", super::node_id);
 
   // Cancelling Event Timers
   m_consumerLoopTimer.Cancel();
@@ -224,18 +224,29 @@ MultimediaConsumer<Parent>::StopApplication() // Called at time specified by Sto
   }
 
 
-
-
-  super::SetAttribute("KeepAlive", StringValue("false"));
-
   // make sure to close the socket, in case it is still open
-  super::ForceCloseSocket();
+  super::SetAttribute("KeepAlive", StringValue("false"));
+  //super::ForceCloseSocket();
 
   // cleanup base stuff
   super::StopApplication();
 }
 
+template<class Parent>
+std::string 
+MultimediaConsumer<Parent>::getMpdUrl ()
+{
+  return m_mpdUrl;
+}
 
+template<class Parent>
+void
+MultimediaConsumer<Parent>::setMpdUrl (std::string url)
+{
+  std::stringstream ss;
+  ss << url << m_mpdUrl;
+  m_mpdUrl = ss.str ();
+}
 
 template<class Parent>
 bool
@@ -256,7 +267,7 @@ MultimediaConsumer<Parent>::DecompressFile ( std::string source, std::string fil
 
   try
   {
-    std::string decompressed = zlib_decompress_string (compressed_str); // vitalii
+    std::string decompressed = zlib_decompress_string(compressed_str);
 
     std::ofstream outfile( filename.c_str(), std::ios_base::out |  std::ios_base::binary ); //Creates the output stream
     outfile << decompressed;
@@ -293,8 +304,7 @@ MultimediaConsumer<Parent>::OnMpdFile()
   }
 
 
-  NS_LOG_DEBUG("MPD File " << m_tempMpdFile << " received. Parsing now...");
-
+  // NS_LOG_UNCOND("MPD File " << m_tempMpdFile << " received. Parsing now...");
 
   dash::IDASHManager *manager;
   manager = CreateDashManager();
@@ -587,8 +597,12 @@ MultimediaConsumer<Parent>::OnMultimediaFile()
     //fprintf(stderr, "lastBitrate = %f\n", super::lastDownloadBitrate);
     mPlayer->SetLastDownloadBitRate(super::lastDownloadBitrate);
 
-    fprintf(stderr, "Last Download Speed = %f kBit/s\n", super::lastDownloadBitrate/1000.0);
+    std::ostringstream strs;
+    strs << Simulator::Now().GetSeconds();
+    std::string now = strs.str();
 
+    fprintf(stderr, "Node id: %d %s Last Download Speed = %f kBit/s\n", super::node_id, now.c_str(), super::lastDownloadBitrate/1000.0);
+    
 
     // check if there is enough space in buffer
     if(mPlayer->EnoughSpaceInBuffer(requestedSegmentNr, requestedRepresentation, m_isLayeredContent))
@@ -679,8 +693,8 @@ MultimediaConsumer<Parent>::DownloadSegment()
     NS_LOG_DEBUG("Player Buffer=" << mPlayer->GetBufferLevel() << ", MaxBuffer= " << m_maxBufferedSeconds << ", pausing download...");
     // we can wait before we need to downlaod something again - but for how long?
     // seems that half of segment-length should be good
-
-    Simulator::Schedule(Seconds(1.0), &MultimediaConsumer<Parent>::DownloadSegment, this);
+    m_downloadEventTimer.Cancel();
+    m_downloadEventTimer=Simulator::Schedule(Seconds(1.0), &MultimediaConsumer<Parent>::DownloadSegment, this);
     return;
   }*/
 
@@ -694,7 +708,7 @@ MultimediaConsumer<Parent>::DownloadSegment()
   {
     NS_LOG_DEBUG("No more segments available for download!\n");
     // make sure to close the socket
-    super::ForceCloseSocket();
+    //super::ForceCloseSocket();
     return;
   }
 
@@ -753,6 +767,7 @@ MultimediaConsumer<Parent>::DoPlay()
       {
         //abort download ...
         NS_LOG_DEBUG("Aborting to download a segment with repId = " << requestedRepresentation->GetId().c_str());
+  NS_LOG_UNCOND ("\n\n stop 3 \n\n");
         super::StopApplication();
         mPlayer->SetLastDownloadBitRate(0.0);//set dl_bitrate to zero.
         ScheduleDownloadOfSegment();

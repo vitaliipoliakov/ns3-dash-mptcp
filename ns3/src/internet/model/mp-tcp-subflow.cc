@@ -124,11 +124,11 @@ MpTcpSubFlow::CwndTracer(uint32_t oldval, uint32_t newval)
 }
 
 void
-MpTcpSubFlow::AddDSNMapping(uint8_t sFlowIdx, uint64_t dSeqNum, uint16_t dLvlLen, uint32_t sflowSeqNum, uint32_t ack/*,
-    Ptr<Packet> pkt*/)
+MpTcpSubFlow::AddDSNMapping(uint8_t sFlowIdx, uint64_t dSeqNum, uint16_t dLvlLen, uint32_t sflowSeqNum, uint32_t ack,
+    Ptr<Packet> pkt)
 {
   NS_LOG_FUNCTION_NOARGS();
-  mapDSN.push_back(new DSNMapping(sFlowIdx, dSeqNum, dLvlLen, sflowSeqNum, ack/*, pkt*/));
+  mapDSN.push_back(new DSNMapping(sFlowIdx, dSeqNum, dLvlLen, sflowSeqNum, ack, pkt));
 }
 
 void

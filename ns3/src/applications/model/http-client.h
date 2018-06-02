@@ -30,6 +30,7 @@
 #include "ns3/address.h"
 #include "ns3/traced-callback.h"
 #include "ns3/tcp-socket.h"
+#include "ns3/mp-tcp-socket-base.h"
 
 
 
@@ -94,6 +95,12 @@ public:
   */
 
   void CancelDownload ();
+
+  double GetLastDownloadBandwidth ();
+
+  std::string GetRemoteAddress ();
+
+  Ipv4Address m_publicPeerAddress; //!< public peer addr
 
 
 protected:
@@ -185,7 +192,7 @@ private:
   uint32_t m_size; //!< Size of the sent packet
 
   uint32_t m_sent; //!< Counter for sent packets
-  Ptr<Socket> m_socket; //!< Socket
+  Ptr<MpTcpSocketBase> m_socket; //!< Socket
   Address m_peerAddress; //!< Remote peer address
   uint16_t m_peerPort; //!< Remote peer port
   EventId m_sendEvent; //!< Event to send the next packet

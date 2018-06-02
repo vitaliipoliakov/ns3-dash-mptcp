@@ -27,8 +27,8 @@
 #include "mp-tcp-subflow.h"
 #include "ns3/output-stream-wrapper.h"
 
-#define Aa 1
-#define Bb 2
+#define A_MP 1
+#define B_MP 2
 #define A_SCALE 512
 
 using namespace std;
@@ -61,7 +61,9 @@ public: // public methods
   bool SendBufferedData();                    // This would called SendPendingData() - TcpTxBuffer API need to be used in future!
   //int FillBuffer(uint8_t* buf, uint32_t size);// Fill sending buffer with data - TcpTxBuffer API need to be used in future!
   int FillBuffer(uint32_t size);
+  int FillBuffer(uint8_t* data, uint32_t size);
   //uint32_t Recv(uint8_t* buf, uint32_t size); // Receive data from receiveing buffer - TcpRxBuffe API need to be used in future!
+  Ptr<Packet> Recv();
   uint32_t Recv(uint32_t size); // Receive data from receiveing buffer - TcpRxBuffe API need to be used in future!
 
   //void allocateSendingBuffer(uint32_t size);  // Can be removed now as SetSndBufSize() is implemented instead!
@@ -206,7 +208,7 @@ protected: // protected methods
 
   // Re-ordering buffer
   bool StoreUnOrderedData(DSNMapping *ptr);
-  void ReadUnOrderedData();
+  void ReadUnOrderedData(Ptr<Packet> packet);
   bool FindPacketFromUnOrdered(uint8_t sFlowIdx);
 
   // Congestion control

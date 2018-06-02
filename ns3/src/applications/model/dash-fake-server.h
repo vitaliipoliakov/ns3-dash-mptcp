@@ -30,6 +30,7 @@
 #include "ns3/address.h"
 #include "ns3/ipv4-address.h"
 #include "ns3/ipv6-address.h"
+#include "ns3/mp-tcp-socket-base.h"
 
 #include <map>
 #include <vector>
@@ -90,10 +91,10 @@ protected:
   /**
    * \brief Register this new socket and gets a new client ID for this socket, and register this socket
   */
-  uint64_t RegisterSocket(Ptr<Socket> socket);
+  uint64_t RegisterSocket(Ptr<MpTcpSocketBase> socket);
 
 private:
-  std::map<Ptr<Socket> /* socket */, uint64_t /* socket id */  > m_activeSockets;
+  std::map<Ptr<MpTcpSocketBase> /* socket */, uint64_t /* socket id */  > m_activeSockets;
 
   std::map<uint64_t /* socket id */, HttpServerFakeClientSocket* /* client_socket */ > m_activeClients;
 
@@ -127,7 +128,7 @@ private:
 
 
   uint16_t m_port; //!< Port on which we listen for incoming packets.
-  Ptr<Socket> m_socket; //!< IPv4 Socket
+  Ptr<MpTcpSocketBase> m_socket; //!< IPv4 Socket
 
   std::string m_mpdDirectory;
   std::string m_mpdMetaDataFiles;

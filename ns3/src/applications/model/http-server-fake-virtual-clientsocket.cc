@@ -7,6 +7,7 @@
 
 #include "ns3/socket.h"
 #include "ns3/packet.h"
+#include "ns3/simulator.h"
 
 
 #include <sys/types.h>
@@ -49,9 +50,17 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
   // now parse this request (TODO) and reply
   std::string filename = m_content_dir  + ParseHTTPHeader(data);
 
-  fprintf(stderr, "VirtualServer(%ld): Request Opening '%s'\n", m_socket_id, filename.c_str());
+  fprintf(stderr, "[%fs] VirtualServer(%ld): Request Opening '%s'\n", Simulator::Now().GetSeconds(), m_socket_id, filename.c_str());
 
   long filesize = GetFileSize(filename);
+  /**
+   * Vitalii: you can check you achievable throughput with these huge 16Mb chunks
+  long filesize;
+  if (filename != "/content/mpds/vid2.mpd.gz")
+    filesize = 16000000;
+  else
+    filesize = GetFileSize(filename);
+  */
 
   if (filesize == -1)
   {
@@ -62,6 +71,9 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
     AddBytesToTransmit((uint8_t*)replyString.c_str(), replyString.length());
   } else
   {
+    // Vitalii: somehow the app send buffer doesn't get cleared from previous
+    //          data/segments, so let's clear it here for sure
+    this->m_bytesToTransmit.clear();
     // Create a proper header
     std::stringstream replySS;
     replySS << "HTTP/1.1 200 OK" << CRLF; // OR HTTP/1.1 404 Not Found
@@ -131,7 +143,6 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
       fclose(fp);
     }
   }
-
 
   HandleReadyToTransmit(socket, socket->GetTxAvailable());
 }

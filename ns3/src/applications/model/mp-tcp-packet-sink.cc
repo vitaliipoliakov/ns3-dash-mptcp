@@ -105,7 +105,9 @@ MpTcpPacketSink::StartApplication()    // Called at time specified by Start
       m_socket = DynamicCast<MpTcpSocketBase>(Socket::CreateSocket (GetNode (), m_tid));
       m_socket->Bind(m_local);
       m_socket->Listen();
-      NS_LOG_LOGIC("StartApplication -> MptcpPacketSink got an listening socket " << m_socket << " binded to addrs:port  " << InetSocketAddress::ConvertFrom(m_local).GetIpv4() << ":" << InetSocketAddress::ConvertFrom(m_local).GetPort());
+      // NS_LOG_LOGIC("StartApplication -> MptcpPacketSink got an listening socket " 
+      // << m_socket << " binded to addrs:port  " << InetSocketAddress::ConvertFrom(m_local).GetIpv4() 
+      // << ":" << InetSocketAddress::ConvertFrom(m_local).GetPort());
     }
 
   m_socket->SetRecvCallback(MakeCallback(&MpTcpPacketSink::HandleRead, this));

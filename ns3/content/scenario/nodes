@@ -1,0 +1,4 @@
+#id, type, AdaptationLogic, StartUpDelay, AllowDownscale, AllowUpscale, MaxBufferedSeconds
+0 server
+1 router
+2 client RateBasedAdaptationLogic 0 yes yes 30

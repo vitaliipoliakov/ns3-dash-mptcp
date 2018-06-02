@@ -21,6 +21,7 @@
 // ns3 - HTTP Server Application class
 
 #include <fstream>
+#include <iostream>
 
 #include "ns3/log.h"
 #include "ns3/address.h"
@@ -39,6 +40,9 @@
 #include "ns3/trace-source-accessor.h"
 #include "ns3/string.h"
 #include "ns3/pointer.h"
+#include "ns3/double.h"
+#include "ns3/random-variable-stream.h"
+#include "ns3/mp-tcp-socket-base.h"
 
 #include <stdio.h>
 
@@ -115,7 +119,6 @@ DASHFakeServerApplication::DoDispose (void)
 
 
 
-
 std::string /* mpd string */
 DASHFakeServerApplication::ImportDASHRepresentations (std::string mpdMetaDataFilename, int video_id)
 {
@@ -154,9 +157,16 @@ DASHFakeServerApplication::ImportDASHRepresentations (std::string mpdMetaDataFil
   prefix = "numberOfSegments=";
   if (!line.compare(0, prefix.size(), prefix))
     number_of_segments = atoi(line.substr(prefix.size()).c_str());
+ 
+  //JEREMIE
+  double avgsigma_mu = -1;
+  //read bitrate variation
+  std::getline(infile,line);
+  prefix = "AvgSigma/mu=";
+  if (!line.compare(0, prefix.size(), prefix))
+    avgsigma_mu = atof(line.substr(prefix.size()).c_str());
 
   std::stringstream mpdData;
-
   mpdData << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << std::endl
           << "<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl
           << "xmlns=\"urn:mpeg:DASH:schema:MPD:2011\" xsi:schemaLocation=\"urn:mpeg:DASH:schema:MPD:2011\"" << std::endl
@@ -181,7 +191,11 @@ DASHFakeServerApplication::ImportDASHRepresentations (std::string mpdMetaDataFil
           << "<Period start=\"PT0S\">" << std::endl << "<AdaptationSet bitstreamSwitching=\"true\">" << std::endl;
 
   // get header and ignore
-  std::getline(infile,line); // reprId,screenWidth,screenHeight,bitrate
+  if(avgsigma_mu!=-1) std::getline(infile,line); // reprId,screenWidth,screenHeight,bitrate
+
+  //create file with segment properties
+  std::ofstream segments_file;
+  segments_file.open("segments", std::ofstream::app);
 
   while (std::getline(infile,line))
   {
@@ -196,6 +210,12 @@ DASHFakeServerApplication::ImportDASHRepresentations (std::string mpdMetaDataFil
         pos1 = line.find(",");
         if (pos1 != std::string::npos)
         {
+         std::string quality_index = line.substr(0, pos1);
+         line = line.substr(pos1+1);
+
+         pos1 = line.find(",");
+         if (pos1 != std::string::npos)
+         {
           std::string repr_width = line.substr(0, pos1);
           line = line.substr(pos1+1);
 
@@ -204,23 +224,64 @@ DASHFakeServerApplication::ImportDASHRepresentations (std::string mpdMetaDataFil
           if (pos1 != std::string::npos)
           {
             std::string repr_height = line.substr(0, pos1);
-            std::string repr_bitrate = line.substr(pos1+1);
+	    line = line.substr(pos1+1);
 
-            int iBitrate = atoi(repr_bitrate.c_str()); // read bitrate in kilobit/s
+	    pos1 = line.find(",");
 
-            fprintf(stderr, "Representation ID = %s, height = %s, bitrate = %s\n", repr_id.c_str(), repr_height.c_str(), repr_bitrate.c_str());
+	    std::string repr_bitrate; 
+	    std::string repr_sigma_mu;
+	    std::string repr_avgchuncksize;
+	    double bitrate;
+	    double sigma_mu=-1;
+	    double avgchunksize;
+
+            if (pos1 != std::string::npos)
+            {
+               repr_bitrate  = line.substr(0, pos1);
+	       line = line.substr(pos1+1);
+	       pos1 = line.find(",");
+               repr_sigma_mu  = line.substr(0, pos1);
+               repr_avgchuncksize = line.substr(pos1+1);
+	       sigma_mu=atof(repr_sigma_mu.c_str());
+	       avgchunksize=atof(repr_avgchuncksize.c_str());	
+	    }else{
+	       repr_bitrate  = line.substr(pos1+1);
+	    }
+	    bitrate=atof(repr_bitrate.c_str());
+	    int iBitrate = atoi(repr_bitrate.c_str()); // read bitrate in kilobit/s
+
+            NS_LOG_DEBUG ("Representation ID = "<<repr_id.c_str()<<", height = "<<repr_height.c_str()<<", bitrate = " <<repr_bitrate.c_str());
             mpdData << "<Representation id=\"" << repr_id << "\" codecs=\"avc1\" mimeType=\"video/mp4\"" <<
                  " width=\"" << repr_width << "\" height=\"" << repr_height << "\" startWithSAP=\"1\" bandwidth=\"" << (iBitrate*1000) << "\">" << std::endl;
             mpdData << "<SegmentList duration=\"" << segment_duration << "\">" << std::endl;
 
 
-            long iSegmentSize = (double)iBitrate/8.0 * (double)segment_duration * 1024; // in byte
-
-            for (int i = 0; i < number_of_segments; i++)
+	    //JEREMIE: modify the size of each segment according to bit rate variation 
+	    Ptr<LogNormalRandomVariable> x = CreateObject<LogNormalRandomVariable> ();
+	    if(sigma_mu>=0){
+		double delta=std::sqrt(1.0/(sigma_mu*sigma_mu)+2*std::log(avgchunksize));
+		double sigma=-1/sigma_mu+delta; 
+		double mu=sigma/sigma_mu;
+		//double mu=std::log(bitrate*bitrate/std::sqrt(bitrate*bitrate+sigma_mu*bitrate));
+		//double sigma=std::sqrt(std::log(sigma_mu*bitrate/(bitrate*bitrate)+1));
+	    	NS_LOG_INFO( bitrate << " " << sigma_mu << " " << sigma << " " << mu );
+	    	x->SetAttribute("Mu", DoubleValue (mu));
+	   	x->SetAttribute("Sigma", DoubleValue (sigma));
+	    	NS_LOG_INFO( quality_index << " " << avgchunksize << " " << iBitrate << " " << mu << " " << sigma << " " << x->GetValue() << " " << bitrate << " " << sigma_mu*bitrate << " " << sigma_mu << " " << x->GetValue());
+		//exit(0);
+	    }
+            
+	    long iSegmentSize = (double)iBitrate/8.0 * (double)segment_duration * 1024; // in byte
+            
+	    for (int i = 0; i < number_of_segments; i++)
             {
               std::ostringstream segmentFileName;
               segmentFileName << "vid" << video_id << "/repr_" << repr_id << "_seg_" << i << ".264";
-
+	      if(sigma_mu>=0){
+			iBitrate=(int)x->GetValue()/ (double)segment_duration;
+			iSegmentSize = (double)iBitrate/8.0 * (double)segment_duration * 1024; // in byte
+	      }
+	      segments_file  << video_id << " " << repr_id << " " << i << " " << iSegmentSize << " " << quality_index << "\n";
               m_fileSizes[m_metaDataContentDirectory + segmentFileName.str()] = iSegmentSize;
 
               m_virtualFiles.push_back(m_metaDataContentDirectory + segmentFileName.str());
@@ -229,13 +290,13 @@ DASHFakeServerApplication::ImportDASHRepresentations (std::string mpdMetaDataFil
             }
 
             mpdData << "</SegmentList>" << std::endl << "</Representation>" << std::endl;
-
           }
         }
+       }
       }
     }
   }
-
+  segments_file.close();
   mpdData << "</AdaptationSet></Period></MPD>" << std::endl;
 
   infile.close();
@@ -304,11 +365,12 @@ DASHFakeServerApplication::StartApplication (void)
 
   if (m_socket == 0)
   {
-    TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
-    m_socket = Socket::CreateSocket (GetNode (), tid);
+    TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory"); // that's a correct TypeID for MPTCP
+    // m_socket = Socket::CreateSocket (GetNode (), tid);
+    m_socket = DynamicCast<MpTcpSocketBase>(Socket::CreateSocket (GetNode (), tid));
 
 
-    // Fatal error if socket type is not NS3_SOCK_STREAM or NS3_SOCK_SEQPACKET
+    //Fatal error if socket type is not NS3_SOCK_STREAM or NS3_SOCK_SEQPACKET
     if (m_socket->GetSocketType () != Socket::NS3_SOCK_STREAM &&
         m_socket->GetSocketType () != Socket::NS3_SOCK_SEQPACKET)
     {
@@ -320,13 +382,14 @@ DASHFakeServerApplication::StartApplication (void)
     if (Ipv4Address::IsMatchingType(m_listeningAddress) == true)
     {
       InetSocketAddress local = InetSocketAddress (Ipv4Address::ConvertFrom(m_listeningAddress), m_port);
-      NS_LOG_INFO("Listening on Ipv4 " << Ipv4Address::ConvertFrom(m_listeningAddress) << ":" << m_port);
-      m_socket->Bind (local);
+      NS_LOG_UNCOND("Listening on Ipv4 " << Ipv4Address::ConvertFrom(m_listeningAddress) << ":" << m_port);
+      m_socket->Bind (Address(local));
     } else if (Ipv6Address::IsMatchingType(m_listeningAddress) == true)
     {
-      Inet6SocketAddress local6 = Inet6SocketAddress (Ipv6Address::ConvertFrom(m_listeningAddress), m_port);
-      NS_LOG_INFO("Listening on Ipv6 " << Ipv6Address::ConvertFrom(m_listeningAddress));
-      m_socket->Bind (local6);
+      NS_FATAL_ERROR ("IPv6 is not handled nor tested in this MPTCP conversion");
+      // Inet6SocketAddress local6 = Inet6SocketAddress (Ipv6Address::ConvertFrom(m_listeningAddress), m_port);
+      // NS_LOG_INFO("Listening on Ipv6 " << Ipv6Address::ConvertFrom(m_listeningAddress));
+      // m_socket->Bind (local6);
     } else {
       NS_LOG_ERROR("Not sure what type the m_listeningaddress is... " << m_listeningAddress);
     }
@@ -342,7 +405,9 @@ DASHFakeServerApplication::StartApplication (void)
       MakeCallback(&DASHFakeServerApplication::ConnectionAccepted, this)
   );
 
-
+  // vitalii: for some reason, m_mpdMetaDataFiles is empty and there isn't any explicit way to construct or fetch it. Hence, next line:
+  std::string m_mpdMetaDataFiles = "../content/representations/netflix_vid1.csv,../content/representations/netflix_vid2.csv,../content/representations/netflix_vid3.csv"; // makes it only for three videoIDs, add if need more
+  
   // parse m_mpdMetaDataFiles, could be comma separated list
   std::vector<std::string> metaDataRepresentations;
   size_t pos = m_mpdMetaDataFiles.find(",");
@@ -372,7 +437,6 @@ DASHFakeServerApplication::StartApplication (void)
     metaDataRepresentations.push_back(tmpStr);
   }
 
-
   int video_id = 1;
 
   // parse all files in metaDataRepresentations
@@ -382,7 +446,7 @@ DASHFakeServerApplication::StartApplication (void)
     std::string mpdData = ImportDASHRepresentations(mmm, video_id);
 
     // compress
-    std::string compressedMpdData = zlib_compress_string (mpdData); 
+    std::string compressedMpdData = zlib_compress_string(mpdData);
     fprintf(stderr, "Size of compressed = %ld, uncompressed = %ld\n", compressedMpdData.length(), mpdData.length());
 
 
@@ -436,10 +500,11 @@ DASHFakeServerApplication::ConnectionRequested (Ptr<Socket> socket, const Addres
 
 
 void
-DASHFakeServerApplication::ConnectionAccepted (Ptr<Socket> socket, const Address& address)
+DASHFakeServerApplication::ConnectionAccepted (Ptr<Socket> s, const Address& address)
 {
-  NS_LOG_FUNCTION (this << socket << address);
+  NS_LOG_FUNCTION (this << s << address);
   fprintf(stderr, "DASH Fake Server: Connection Accepted!\n");
+  Ptr<MpTcpSocketBase> socket = DynamicCast<MpTcpSocketBase> (s);
 
   uint64_t socket_id = RegisterSocket(socket);
 
@@ -476,9 +541,9 @@ DASHFakeServerApplication::DoFinishSocket(uint64_t socket_id)
 {
   if (m_activeClients.find(socket_id) != m_activeClients.end())
   {
-    HttpServerFakeClientSocket* tmp = m_activeClients[socket_id];
-    m_activeClients.erase(socket_id);
-    delete tmp; // TODO: CHECK
+    //HttpServerFakeClientSocket* tmp = m_activeClients[socket_id];
+    //m_activeClients.erase(socket_id);
+    //delete tmp; // TODO: CHECK
   }
 }
 
@@ -488,7 +553,7 @@ DASHFakeServerApplication::DoFinishSocket(uint64_t socket_id)
 
 
 uint64_t
-DASHFakeServerApplication::RegisterSocket (Ptr<Socket> socket)
+DASHFakeServerApplication::RegisterSocket (Ptr<MpTcpSocketBase> socket)
 {
   this->m_activeSockets[socket] = this->m_lastSocketID;
 

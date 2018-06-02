@@ -350,8 +350,8 @@ TcpL4Protocol::Receive(Ptr<Packet> packet, Ipv4Header const &ipHeader, Ptr<Ipv4I
   packet->PeekHeader(tcpHeader);
   NS_LOG_INFO("AFTER PEEKHEADER " << packet->GetSize());
 
-//  Ipv4Address source = ipHeader.GetSource();
-//  Ipv4Address destination = ipHeader.GetDestination();
+  //Ipv4Address source = ipHeader.GetSource();
+  //Ipv4Address destination = ipHeader.GetDestination();
   uint16_t srcPort = tcpHeader.GetSourcePort();
   //uint16_t dstPort = tcpHeader.GetDestinationPort();
   NS_LOG_INFO(this << "TcpL4Protocol:Receive    -> "<< tcpHeader);
@@ -450,6 +450,7 @@ TcpL4Protocol::Receive(Ptr<Packet> packet, Ipv4Header const &ipHeader, Ptr<Ipv4I
           return IpL4Protocol::RX_ENDPOINT_CLOSED;
         }
     }
+  
   NS_ASSERT_MSG(endPoints.size () == 1, "Demux returned more than one endpoint");
   NS_LOG_LOGIC ("TcpL4Protocol "<<this<<" forwarding up to endpoint/socket");
   (*endPoints.begin())->ForwardUp(packet, ipHeader, tcpHeader.GetSourcePort(), incomingInterface);

@@ -52,7 +52,7 @@ public:
   MpTcpSubFlow();
   ~MpTcpSubFlow();
 
-  void AddDSNMapping(uint8_t sFlowIdx, uint64_t dSeqNum, uint16_t dLvlLen, uint32_t sflowSeqNum, uint32_t ack/*, Ptr<Packet> pkt*/);
+  void AddDSNMapping(uint8_t sFlowIdx, uint64_t dSeqNum, uint16_t dLvlLen, uint32_t sflowSeqNum, uint32_t ack, Ptr<Packet> pkt);
   void StartTracing(string traced);
   void CwndTracer(uint32_t oldval, uint32_t newval);
   void SetFinSequence(const SequenceNumber32& s);

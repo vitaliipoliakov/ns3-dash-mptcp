@@ -62,7 +62,7 @@ class DSNMapping
 {
 public:
   DSNMapping();
-  DSNMapping(uint8_t sFlowIdx, uint64_t dSeqNum, uint16_t dLvlLen, uint32_t sflowSeqNum, uint32_t ack/*, Ptr<Packet> pkt*/);
+  DSNMapping(uint8_t sFlowIdx, uint64_t dSeqNum, uint16_t dLvlLen, uint32_t sflowSeqNum, uint32_t ack, Ptr<Packet> pkt);
   //DSNMapping (const DSNMapping &res);
   virtual ~DSNMapping();
   bool operator <(const DSNMapping& rhs) const;
@@ -73,6 +73,7 @@ public:
   uint32_t dupAckCount;
   uint8_t subflowIndex;
   //uint8_t *packet;
+  uint8_t *payload;
 };
 
 class MpTcpAddressInfo
@@ -95,8 +96,10 @@ public:
   uint32_t bufMaxSize;
   //uint32_t Add(uint8_t* buf, uint32_t size);
   uint32_t Add(uint32_t size);
+  uint32_t AddRealData(uint8_t* data, uint32_t size);
   //uint32_t Retrieve(uint8_t* buf, uint32_t size);
   uint32_t Retrieve(uint32_t size);
+  uint8_t* RetrieveRealData(uint32_t size);
   Ptr<Packet> CreatePacket(uint32_t size);
   uint32_t ReadPacket(Ptr<Packet> pkt, uint32_t dataLen);
   bool Empty();

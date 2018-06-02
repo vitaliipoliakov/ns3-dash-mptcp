@@ -21,7 +21,6 @@
 // ns3 - HTTP Client Application class
 
 
-
 #include "ns3/log.h"
 #include "ns3/ipv4-address.h"
 #include "ns3/ipv6-address.h"
@@ -36,16 +35,12 @@
 #include "ns3/packet.h"
 #include "ns3/uinteger.h"
 #include "ns3/trace-source-accessor.h"
-#include "ns3/mp-tcp-socket-base.h"
 
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "http-client.h"
-#include <fstream>
-#include <string>
-#include <iostream>
 
 
 
@@ -90,13 +85,17 @@ HttpClientApplication::GetTypeId (void)
                    MakeBooleanAccessor(&HttpClientApplication::m_keepAlive),
                    MakeBooleanChecker())
     .AddTraceSource("FileDownloadFinished", "Trace called every time a download finishes",
-                   MakeTraceSourceAccessor(&HttpClientApplication::m_downloadFinishedTrace))
+                   MakeTraceSourceAccessor(&HttpClientApplication::m_downloadFinishedTrace),
+                   "bla")
     .AddTraceSource("HeaderReceived", "Trace called every time a header is received",
-                   MakeTraceSourceAccessor(&HttpClientApplication::m_headerReceivedTrace))
+                   MakeTraceSourceAccessor(&HttpClientApplication::m_headerReceivedTrace),
+                   "bla")
     .AddTraceSource("FileDownloadStarted", "Trace called every time a download starts",
-                   MakeTraceSourceAccessor(&HttpClientApplication::m_downloadStartedTrace))
+                   MakeTraceSourceAccessor(&HttpClientApplication::m_downloadStartedTrace),
+                   "bla")
     .AddTraceSource("CurrentPacketStats", "Trace current packets statistics (once per second)",
-                   MakeTraceSourceAccessor(&HttpClientApplication::m_currentStatsTrace))
+                   MakeTraceSourceAccessor(&HttpClientApplication::m_currentStatsTrace),
+                   "bla")
   ;
   return tid;
 }
@@ -118,7 +117,7 @@ HttpClientApplication::HttpClientApplication ()
 HttpClientApplication::~HttpClientApplication()
 {
   NS_LOG_FUNCTION (this);
-  //m_socket = 0;
+  m_socket = 0;
 
   if (_tmpbuffer != NULL)
   {
@@ -126,23 +125,6 @@ HttpClientApplication::~HttpClientApplication()
     free(_tmpbuffer);
   }
 }
-
-double
-HttpClientApplication::GetLastDownloadBandwidth ()
-{
-  // NS_LOG_UNCOND ("\n" << lastDownloadBitrate);
-  double _r = lastDownloadBitrate;
-  return _r;
-}
-
-std::string
-HttpClientApplication::GetRemoteAddress ()
-{
-  std::stringstream _addr;
-  m_publicPeerAddress.Print (_addr);
-  return _addr.str ();
-}
-
 
 void
 HttpClientApplication::SetRemote (Address ip, uint16_t port)
@@ -157,7 +139,6 @@ HttpClientApplication::SetRemote (Ipv4Address ip, uint16_t port)
 {
   NS_LOG_FUNCTION (this << ip << port);
   m_peerAddress = Address (ip);
-  m_publicPeerAddress = ip;
   m_peerPort = port;
 }
 
@@ -215,27 +196,21 @@ HttpClientApplication::TryEstablishConnection (void)
     if (m_socket == 0)
     {
       TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
-      // m_socket = Socket::CreateSocket (GetNode (), tid); //  TCP NewReno per default (according to documentation)
-      m_socket = DynamicCast<MpTcpSocketBase>(Socket::CreateSocket (GetNode (), tid));
-      m_socket->SetFlowType("Long");
-      m_socket->SetOutputFileName("NULL");
+      m_socket = Socket::CreateSocket (GetNode (), tid); //  TCP NewReno per default (according to documentation)
       if (Ipv4Address::IsMatchingType(m_peerAddress) == true)
       {
         m_socket->Bind();
         int errno = m_socket->Connect (InetSocketAddress (Ipv4Address::ConvertFrom(m_peerAddress), m_peerPort));
-        m_socket->SetFlowId(0);
-        m_socket->SetDupAckThresh(0);
 
         NS_LOG_DEBUG("Binding to Ipv4:" << Ipv4Address::ConvertFrom(m_peerAddress) << ":" << m_peerPort << ", errno=" << errno);
 
       }
       else if (Ipv6Address::IsMatchingType(m_peerAddress) == true)
       {
-        NS_FATAL_ERROR ("IPv6 is not handled nor tested in this MPTCP conversion");
-        // m_socket->Bind6();
-        // m_socket->Connect (Inet6SocketAddress (Ipv6Address::ConvertFrom(m_peerAddress), m_peerPort));
+        m_socket->Bind6();
+        m_socket->Connect (Inet6SocketAddress (Ipv6Address::ConvertFrom(m_peerAddress), m_peerPort));
 
-        // NS_LOG_DEBUG("Binding to Ipv6...");
+        NS_LOG_DEBUG("Binding to Ipv6...");
       }
 
       //m_socket->ShutdownRecv ();
@@ -352,8 +327,8 @@ HttpClientApplication::ConnectionClosedError (Ptr<Socket> socket)
   fprintf(stderr,"Client(%d): Socket was closed with an error, errno=%d; Trying to open it again...\n", node_id, socket->GetErrno());
   socket->SetCloseCallbacks(MakeNullCallback<void, Ptr<Socket> > (),MakeNullCallback<void, Ptr<Socket> > ());
 
-  // let's try opening the second again again in 0.5 second
-  if(m_keepAlive) Simulator::Schedule(Seconds(0.5), &HttpClientApplication::TryEstablishConnection, this);
+  // let's try opening the second again again in 0.5 second (Jeremie: reopen only if keep alive is desired)
+  if (m_keepAlive) Simulator::Schedule(Seconds(0.5), &HttpClientApplication::TryEstablishConnection, this);
 }
 
 
@@ -375,12 +350,12 @@ HttpClientApplication::StopApplication ()
 
   if (m_socket != 0 && !m_keepAlive)
   {
-    fprintf(stderr, "Client(%d): Socket is open, closing it...\n", node_id);
+    fprintf(stderr, "Client(%d): Socket is till open, closing it...\n", node_id);
     m_socket->Close ();
     m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
     m_socket = 0;
   } else {
-   if(m_keepAlive) fprintf(stderr, "Client(%d): We are in stop application, but keeping alive...\n", node_id);
+    fprintf(stderr, "We are in stop application, but keeping alive...\n");
   }
 
   Simulator::Cancel (m_reportStatsEvent);
@@ -398,9 +373,9 @@ HttpClientApplication::ConnectionComplete (Ptr<Socket> socket)
 
   m_success_connecting++;
 
+
   // Get ready to receive.
   socket->SetRecvCallback (MakeCallback (&HttpClientApplication::HandleRead, this));
-  OnReadySend (socket, 1400);
 }
 
 void
@@ -425,17 +400,15 @@ HttpClientApplication::OnReadySend (Ptr<Socket> localSocket, uint32_t txSpace)
   if (!m_sentGetRequest)
   {
     m_sentGetRequest = true;
-    
     DoSendGetRequest(localSocket, txSpace);
   }
 }
 
 void
-HttpClientApplication::DoSendGetRequest (Ptr<Socket> s, uint32_t txSpace)
+HttpClientApplication::DoSendGetRequest (Ptr<Socket> localSocket, uint32_t txSpace)
 {
   NS_LOG_FUNCTION (this);
 
-  Ptr<MpTcpSocketBase> localSocket = DynamicCast<MpTcpSocketBase> (s);
 
   m_downloadStartedTrace(this, this->m_fileToRequest);
 
@@ -479,9 +452,7 @@ HttpClientApplication::DoSendGetRequest (Ptr<Socket> s, uint32_t txSpace)
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
   m_txTrace (p);
-  // localSocket->MpTcpSocketBase::Send (p);
-  localSocket->MpTcpSocketBase::FillBuffer (buffer, requestString.length());
-  localSocket->MpTcpSocketBase::SendBufferedData ();
+  localSocket->Send (p);
 
   m_bytesSent += requestString.length();
 
@@ -521,7 +492,7 @@ HttpClientApplication::ParseResponseHeader(const uint8_t* buffer, size_t len, in
   Content-Length: {len}CRLFCRLF;
   */
 
-  NS_LOG_DEBUG ("Client("<<node_id<<"): Parsing Response Header of length " << len);
+  fprintf(stderr, "Client(%d): Parsing Response Header of length %ld\n", node_id, len);
   const char* strbuffer = (const char*) buffer;
 
   //fprintf(stderr, "header=\n%s\n", buffer);
@@ -649,10 +620,8 @@ HttpClientApplication::ForceCloseSocket()
 
 
 void
-HttpClientApplication::HandleRead (Ptr<Socket> s)
+HttpClientApplication::HandleRead (Ptr<Socket> socket)
 {
-  Ptr<MpTcpSocketBase> socket = DynamicCast<MpTcpSocketBase>(s);
-
   NS_LOG_FUNCTION(this << socket << "URL=" << m_fileToRequest);
   if (m_finished_download)
   {
@@ -665,9 +634,9 @@ HttpClientApplication::HandleRead (Ptr<Socket> s)
 
   uint32_t bytes_recv_this_time = 0;
 
-  while ((packet = socket->Recv ()) && (packet->GetSize() != 0)) // Vitalii: before mptcp it was while (true)
+  while (true)
   {
-    // packet = socket->RecvFrom (from);
+    packet = socket->RecvFrom (from);
 
     if (!(packet))
     {
@@ -680,8 +649,6 @@ HttpClientApplication::HandleRead (Ptr<Socket> s)
     // PARSE PACKET
     size_t packet_size = packet->CopyData(_tmpbuffer, packet->GetSize());
     _tmpbuffer[packet_size] = '\0';
-
-    // NS_LOG_UNCOND ("\n\nsize: " << packet_size << " |" << _tmpbuffer << "|\n");
 
     bytes_recv_this_time += packet_size;
 
@@ -722,14 +689,14 @@ HttpClientApplication::HandleRead (Ptr<Socket> s)
         fclose(fp);
       }
     }
-    
+
+
     // we have received the whole file!
     if (m_bytesRecv == requested_content_length)
     {
       NS_LOG_DEBUG("All bytes received, this means we are done...");
       OnFileReceived(0, requested_content_length);
-      // break;
-      return;
+      break;
     }
     else if (m_bytesRecv > requested_content_length)
     {
@@ -743,4 +710,3 @@ HttpClientApplication::HandleRead (Ptr<Socket> s)
 }
 
 } // Namespace ns3
-

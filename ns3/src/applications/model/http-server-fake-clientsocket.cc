@@ -4,14 +4,19 @@
 #include <fstream>
 #include <algorithm>
 
+#include "ns3/log.h"
 #include "ns3/socket.h"
 #include "ns3/packet.h"
+#include "ns3/simulator.h"
+#include "ns3/mp-tcp-socket-base.h"
 
 
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #define CRLF "\r\n"
+
+NS_LOG_COMPONENT_DEFINE ("HttpServerFakeClientSocket");
 
 namespace ns3
 {
@@ -53,14 +58,19 @@ HttpServerFakeClientSocket::~HttpServerFakeClientSocket()
 
 
 void
-HttpServerFakeClientSocket::HandleIncomingData(Ptr<Socket> socket)
+HttpServerFakeClientSocket::HandleIncomingData(Ptr<Socket> s)
 {
   Ptr<Packet> packet;
   Address from;
-  while ((packet = socket->RecvFrom (from)))
+  Ptr<MpTcpSocketBase> socket = DynamicCast<MpTcpSocketBase>(s);
+  // while ((packet = socket->RecvFrom (from)))
+  while ((packet = socket->Recv ()) && (packet->GetSize() != 0))
   {
     packet->RemoveAllPacketTags ();
     packet->RemoveAllByteTags ();
+
+    // if (packet->GetSize() == 0)
+    //   continue;
 
     uint8_t* buffer = (uint8_t*) malloc ((size_t) packet->GetSize()+1);
     // PARSE PACKET
@@ -77,6 +87,8 @@ HttpServerFakeClientSocket::HandleIncomingData(Ptr<Socket> socket)
       m_activeRecvString += std::string((char*)buffer);
       bytes_recv += packet_size;
     }
+    // std::cout << "\nfinal: |" << m_activeRecvString << "|, and size " << bytes_recv << "\n\n";
+      // NS_FATAL_ERROR ("");
 
     free(buffer);
 
@@ -85,7 +97,9 @@ HttpServerFakeClientSocket::HandleIncomingData(Ptr<Socket> socket)
     {
       m_currentBytesTx = 0;
       m_totalBytesToTx = 0;
+
       FinishedIncomingData(socket, from, m_activeRecvString);
+      m_activeRecvString = "";
     }
   }
 }
@@ -199,11 +213,11 @@ HttpServerFakeClientSocket::LogStateChange(const ns3::TcpSocket::TcpStates_t old
 void
 HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address from, std::string data)
 {
-  fprintf(stderr, "Server(%ld)::FinishedIncomingData(socket,data=str(%ld))\n", m_socket_id, data.length());
+  NS_LOG_DEBUG ("Server("<<m_socket_id<<")::FinishedIncomingData(socket,data=str("<<data.length()<<"))");
   // now parse this request (TODO) and reply
   std::string filename = m_content_dir  + ParseHTTPHeader(data);
 
-  fprintf(stderr, "Server(%ld): Opening '%s'\n", m_socket_id, filename.c_str());
+  fprintf(stderr, "[%fs] Server(%ld): Opening '%s'\n", Simulator::Now().GetSeconds(), m_socket_id, filename.c_str());
 
   long filesize = GetFileSize(filename);
 
@@ -218,6 +232,9 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
     AddBytesToTransmit((uint8_t*)replyString.c_str(), replyString.length());
   } else
   {
+    // Vitalii: somehow the app send buffer doesn't get cleared from previous
+    //          data/segments, so let's clear it here for sure
+    this->m_bytesToTransmit.clear();
     // Create a proper header
     std::stringstream replySS;
     replySS << "HTTP/1.1 200 OK" << CRLF; // OR HTTP/1.1 404 Not Found
@@ -234,12 +251,11 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
     // now append the virtual payload data
     uint8_t tmp[4096];
 
-
     if (std::find(m_virtualFiles.begin(), m_virtualFiles.end(), filename) != m_virtualFiles.end())
     {
       // handle virtual payload
       // fill tmp with some random data
-      fprintf(stderr, "Server(%ld): Generating virtual payload of size %ld ...\n", m_socket_id, filesize);
+      NS_LOG_DEBUG ("Server("<<m_socket_id<<"): Generating virtual payload of size "<<filesize<<" ...");
 
 
       this->m_totalBytesToTx += filesize;
@@ -266,7 +282,7 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
       } */
     } else
     {
-      fprintf(stderr, "Server(%ld): Opening file on disk with size %ld ...\n", m_socket_id, filesize);
+      fprintf(stderr, "[%fs] Server(%ld): Opening file on disk with size %ld ...\n", Simulator::Now().GetSeconds(), m_socket_id, filesize);
       // handle actual payload
       FILE* fp = fopen(filename.c_str(), "rb");
 
@@ -286,18 +302,19 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
     }
   }
 
-
   HandleReadyToTransmit(socket, socket->GetTxAvailable());
 }
 
 void
-HttpServerFakeClientSocket::HandleReadyToTransmit(Ptr<Socket> socket, uint32_t txSize)
+HttpServerFakeClientSocket::HandleReadyToTransmit(Ptr<Socket> s, uint32_t txSize)
 {
   //fprintf(stderr, "Server(%ld): HandleReadyToTransmit(txSize=%d)\n", m_socket_id, txSize);
 
+  Ptr<MpTcpSocketBase> socket = DynamicCast<MpTcpSocketBase>(s); 
+
   if (m_totalBytesToTx == 0) // do nothing
   {
-    fprintf(stderr, "Server(%ld)::HandleReadyToTransmit: Nothing to transmit (yet)...\n", m_socket_id);
+    NS_LOG_DEBUG ("Server("<<m_socket_id<<")::HandleReadyToTransmit: Nothing to transmit (yet)...");
     return;
   }
   if (m_currentBytesTx >= m_totalBytesToTx && m_totalBytesToTx > 0)
@@ -342,40 +359,50 @@ HttpServerFakeClientSocket::HandleReadyToTransmit(Ptr<Socket> socket, uint32_t t
 
   // get txSize bytes from m_bytesToTransmit, starting at byte m_currentBytesTx
 
-
   while (m_currentBytesTx < m_totalBytesToTx && socket->GetTxAvailable () > 0)
   {
     uint32_t remainingBytes = m_totalBytesToTx - m_currentBytesTx;
 
-    if (remainingBytes > 2860)
-      remainingBytes = 2860;
+    // if (remainingBytes > 2860)
+    //   remainingBytes = 2860;
+    if (remainingBytes > 1400)
+      remainingBytes = 1400;
 
-    remainingBytes = std::min(remainingBytes, socket->GetTxAvailable ());
+    if (remainingBytes < socket->GetTxAvailable ())
+    {
+      remainingBytes = std::min(remainingBytes, socket->GetTxAvailable ());
+      NS_LOG_WARN ("Server::HandleReadyToTransmit: Socket has less Tx space " <<
+                    "available than we need; this can potentially make issues" <<
+                    "for pushing data into socket tx buffer!");
+    }
 
     Ptr<Packet> replyPacket;
-
+    uint8_t *buffer;
     if (!m_is_virtual_file)
     {
-      uint8_t* buffer = (uint8_t*) &((this->m_bytesToTransmit)[m_currentBytesTx]);
+      buffer = (uint8_t*) &((this->m_bytesToTransmit)[m_currentBytesTx]);
       replyPacket = Create<Packet> (buffer, remainingBytes);
     } else
     {
       if (m_currentBytesTx == 0) // reply with header
       {
-        uint8_t* buffer = (uint8_t*) &((this->m_bytesToTransmit)[m_currentBytesTx]);
+        buffer = (uint8_t*) &((this->m_bytesToTransmit)[m_currentBytesTx]);
         replyPacket = Create<Packet> (buffer, this->m_bytesToTransmit.size());
       } else {
         // create a virtual reply packet
-        uint8_t* buffer = (uint8_t*)malloc(remainingBytes);
+        buffer = (uint8_t*)malloc(remainingBytes);
 
         replyPacket = Create<Packet> (buffer, remainingBytes);
-        free(buffer);
+        // free(buffer);
       }
     }
 
+    // std::cout << "\n\n size: " << remainingBytes << " |" << buffer << "|\n";
+    int amountSent = socket->FillBuffer (buffer, remainingBytes);
+    socket->SendBufferedData ();
+    // free(buffer);
+    // int amountSent = socket->Send (replyPacket);
 
-
-    int amountSent = socket->Send (replyPacket);
     if (amountSent <= 0)
     {
       fprintf(stderr, "Server(%ld): failed to transmit %d bytes, waiting for next transmit...\n", m_socket_id, remainingBytes);

@@ -85,6 +85,12 @@ public:
   virtual void
   StopApplication();
 
+  virtual std::string
+  getMpdUrl ();
+
+  virtual void
+  setMpdUrl (std::string url);
+
 
 protected:
   virtual void

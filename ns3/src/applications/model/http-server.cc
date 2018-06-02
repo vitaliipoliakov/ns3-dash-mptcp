@@ -328,9 +328,9 @@ HttpServerApplication::DoFinishSocket(uint64_t socket_id)
 {
   if (m_activeClients.find(socket_id) != m_activeClients.end())
   {
-    HttpServerFakeClientSocket* tmp = m_activeClients[socket_id];
-    m_activeClients.erase(socket_id);
-    delete tmp; // TODO: CHECK
+    //HttpServerFakeClientSocket* tmp = m_activeClients[socket_id];
+    //m_activeClients.erase(socket_id);
+    //delete tmp; // TODO: CHECK
   }
 }
 
