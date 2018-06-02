@@ -13,7 +13,7 @@
 #include "ns3/ipv4-nix-vector-helper.h"
 #include "ns3/flow-monitor-helper.h"
 #include "ns3/flow-monitor-module.h"
-// #include "ns3/openflow-module.h"
+//#include "ns3/openflow-module.h"
 //#include "ns3/mpls-module.h"
 
 #include "ns3/uinteger.h"
@@ -25,11 +25,11 @@
 /*
 Topology:
 
-          PtP 10M, 2ms
+           PtP 10M, 2ms
 10.0.0.1 <-------------->  10.0.0.2  
  Client                     Server (DASH)
 10.0.1.1 <-------------->  10.0.1.2
-          PtP 10M, 2ms
+           PtP 10M, 2ms
 
 */
 
@@ -78,7 +78,7 @@ main (int argc, char *argv[])
   ns3::RngSeedManager::SetSeed(3); 
   ns3::SeedManager::SetRun(1);
 
-
+  // %%%%%%%%%%%% Set up the topo
 
   NodeContainer nodes;
   nodes.Create(2);
@@ -107,11 +107,9 @@ main (int argc, char *argv[])
   Ipv4InterfaceContainer i1 = ipv4.Assign(devices[1]);
 
 
-
+  // %%%%%%%%%%%% Set up the DASH server
   
   std::string srv_ip = "10.0.0.2";
-
-
   std::string AdaptationLogicToUse = "dash::player::BufferBasedAdaptationLogic";
 
   ApplicationContainer serverApps;
@@ -124,7 +122,9 @@ main (int argc, char *argv[])
   serverApps.Stop (Seconds(100));
 
 
-  // client stuff
+  // %%%%%%%%%%%% Set up a client with DASH
+  
+  
   std::stringstream mpd_baseurl;
   mpd_baseurl << "http://" << srv_ip << "/content/mpds/";
   int videoId = 0;
@@ -152,7 +152,7 @@ main (int argc, char *argv[])
   // fprintf (stderr, "Client starts at %d and stops at %d\n", startsAt, stopsAt);
   
 
-
+  // %%%%%%%%%%%% sort out the simulation
 
   // Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
