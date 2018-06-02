@@ -1,0 +1,9 @@
+# Dot-hidden on Unix-like systems
+ns3/.waf-*-*/
+ns3/.waf3-*-*/
+# Lockfile
+ns3/.lock-waf_*_build
+# libdash
+AMuSt-libdash-master/libdash/build
+# ns3 build
+ns3/build
