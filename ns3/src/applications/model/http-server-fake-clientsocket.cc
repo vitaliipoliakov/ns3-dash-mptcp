@@ -48,7 +48,7 @@ HttpServerFakeClientSocket::HttpServerFakeClientSocket(uint64_t socket_id,
 
 HttpServerFakeClientSocket::~HttpServerFakeClientSocket()
 {
-  fprintf(stderr, "Server(%ld): Destructing Client Socket(%ld)...\n", m_socket_id, m_socket_id);
+  NS_LOG_INFO ("Server(" << m_socket_id <<"): Destructing Client Socket(" << m_socket_id << ")");
   this->m_bytesToTransmit.clear();
 }
 
@@ -146,7 +146,7 @@ HttpServerFakeClientSocket::ParseHTTPHeader(std::string data)
 
 void HttpServerFakeClientSocket::ConnectionClosedNormal(Ptr<Socket> socket)
 {
-  fprintf(stderr, "Server(%ld): Connection closing normally...\n", m_socket_id);
+  NS_LOG_INFO ("Server(" << m_socket_id << "): Connection closing normally...");
   // just in case, make sure the callbacks are no longer active
 
   // remove the send callback
@@ -160,7 +160,7 @@ void HttpServerFakeClientSocket::ConnectionClosedNormal(Ptr<Socket> socket)
 
 void HttpServerFakeClientSocket::ConnectionClosedError(Ptr<Socket> socket)
 {
-  fprintf(stderr, "Server(%ld): Connection closing with error...\n", m_socket_id);
+  NS_LOG_INFO ("Server(" << m_socket_id << "): Connection closing with error...");
   // just in case, make sure the callbacks are no longer active
 
   // remove the send callback
@@ -191,7 +191,7 @@ long HttpServerFakeClientSocket::GetFileSize(std::string filename)
     return stat_buf.st_size;
   }
   // else: file not found
-  fprintf(stderr, "Server(%ld) ERROR: File not found: '%s'\n", m_socket_id, filename.c_str());
+  NS_LOG_INFO ("Server(" << m_socket_id << ") ERROR: File not found: '" << filename.c_str() << "'");
   return -1;
 }
 
@@ -200,14 +200,14 @@ long HttpServerFakeClientSocket::GetFileSize(std::string filename)
 void
 HttpServerFakeClientSocket::LogCwndChange(uint32_t oldCwnd, uint32_t newCwnd)
 {
-  fprintf(stderr, "Server(%ld): Cwnd Changed %d -> %d\n", m_socket_id, oldCwnd, newCwnd);
+  NS_LOG_INFO ("Server(" << m_socket_id << "): Cwnd Changed " << oldCwnd << " -> " << newCwnd);
 }
 
 
 void
 HttpServerFakeClientSocket::LogStateChange(const ns3::TcpSocket::TcpStates_t old_state, const ns3::TcpSocket::TcpStates_t new_state)
 {
-  fprintf(stderr, "Server(%ld): Socket State Change %s -> %s\n", m_socket_id, ns3::TcpSocket::TcpStateName[old_state], ns3::TcpSocket::TcpStateName[new_state]);
+  NS_LOG_INFO ("Server(" << m_socket_id << "): Socket State Change " << ns3::TcpSocket::TcpStateName[old_state] << " -> " << ns3::TcpSocket::TcpStateName[new_state]);
 }
 
 void
@@ -217,7 +217,7 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
   // now parse this request (TODO) and reply
   std::string filename = m_content_dir  + ParseHTTPHeader(data);
 
-  fprintf(stderr, "[%fs] Server(%ld): Opening '%s'\n", Simulator::Now().GetSeconds(), m_socket_id, filename.c_str());
+  NS_LOG_INFO ("[" << Simulator::Now().GetSeconds() << "s] Server(" << m_socket_id << "): Opening '" << filename.c_str() << "'");
 
   long filesize = GetFileSize(filename);
 
@@ -225,7 +225,7 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
 
   if (filesize == -1)
   {
-    fprintf(stderr, "Server(%ld): Error, '%s' not found!\n", m_socket_id, filename.c_str());
+    NS_LOG_INFO ("Server(" << m_socket_id << "): Error, '" << filename.c_str () << "' not found!");
     // return 404
     std::string replyString("HTTP/1.1 404 Not Found\r\n\r\n");
 
@@ -282,7 +282,7 @@ HttpServerFakeClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address fro
       } */
     } else
     {
-      fprintf(stderr, "[%fs] Server(%ld): Opening file on disk with size %ld ...\n", Simulator::Now().GetSeconds(), m_socket_id, filesize);
+      NS_LOG_INFO ("[" << Simulator::Now().GetSeconds() << "s] Server(" << m_socket_id << "): Opening file on disk with size " << filesize);
       // handle actual payload
       FILE* fp = fopen(filename.c_str(), "rb");
 
@@ -324,7 +324,7 @@ HttpServerFakeClientSocket::HandleReadyToTransmit(Ptr<Socket> s, uint32_t txSize
     {
       if (!m_is_shutdown)
       {
-        fprintf(stderr, "Server(%ld)::HandleReadyToTransmit: Sent %d bytes, now shutting down client socket (socket->close())\n", m_socket_id, m_currentBytesTx);
+        NS_LOG_INFO ("Server(" << m_socket_id << ")::HandleReadyToTransmit: Sent " << m_currentBytesTx << " bytes, now shutting down client socket (socket->close())");
 
         // Request this socket to close
         socket->Close();
@@ -393,19 +393,19 @@ HttpServerFakeClientSocket::HandleReadyToTransmit(Ptr<Socket> s, uint32_t txSize
         buffer = (uint8_t*)malloc(remainingBytes);
 
         replyPacket = Create<Packet> (buffer, remainingBytes);
-        // free(buffer);
+        free (buffer);
       }
     }
 
     // std::cout << "\n\n size: " << remainingBytes << " |" << buffer << "|\n";
     int amountSent = socket->FillBuffer (buffer, remainingBytes);
     socket->SendBufferedData ();
-    // free(buffer);
+    // free (buffer);
     // int amountSent = socket->Send (replyPacket);
 
     if (amountSent <= 0)
     {
-      fprintf(stderr, "Server(%ld): failed to transmit %d bytes, waiting for next transmit...\n", m_socket_id, remainingBytes);
+      NS_LOG_INFO ("Server(" << m_socket_id << "): failed to transmit " << remainingBytes << " bytes, waiting for next transmit...");
       // we will be called again, when new TX space becomes available;
       return;
     }
@@ -421,6 +421,7 @@ void HttpServerFakeClientSocket::AddBytesToTransmit(const uint8_t* buffer, uint3
 {
   std::copy(buffer, buffer+size, std::back_inserter(this->m_bytesToTransmit));
   this->m_totalBytesToTx += size;
+  // delete[] buffer; // Vitalii: let's see if deleting the passed buffer works good so that it won't leak memory// double free :(
 }
 
 };

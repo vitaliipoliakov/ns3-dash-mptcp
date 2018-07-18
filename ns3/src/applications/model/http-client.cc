@@ -107,6 +107,7 @@ HttpClientApplication::HttpClientApplication ()
   m_sent = 0;
   node_id = 0;
   m_socket = 0;
+  lastDownloadBitrate = -1;
 
   _tmpbuffer = NULL; // init this thing
 
@@ -122,7 +123,7 @@ HttpClientApplication::~HttpClientApplication()
 
   if (_tmpbuffer != NULL)
   {
-    fprintf(stderr, "tmpbuffer is still not empty...\n");
+   ///fprintf(stderr, "tmpbuffer is still not empty...\n");
     free(_tmpbuffer);
   }
 }
@@ -131,8 +132,8 @@ double
 HttpClientApplication::GetLastDownloadBandwidth ()
 {
   // NS_LOG_UNCOND ("\n" << lastDownloadBitrate);
-  double _r = lastDownloadBitrate;
-  return _r;
+  double r = lastDownloadBitrate;
+  return r;
 }
 
 std::string
@@ -181,15 +182,16 @@ HttpClientApplication::LogStateChange(const ns3::TcpSocket::TcpStates_t old_stat
 {
   NS_LOG_DEBUG("HttpClient(" << this << "): Socket State Change " << ns3::TcpSocket::TcpStateName[old_state] << " -> "
       << ns3::TcpSocket::TcpStateName[new_state]);
+  m_currentState = new_state;
 
-  fprintf(stderr, "Client(%d): Time=%f Socket %s -> %s\n", node_id, Simulator::Now().GetSeconds(), ns3::TcpSocket::TcpStateName[old_state], ns3::TcpSocket::TcpStateName[new_state]);
+ ///fprintf(stderr, "Client(%d): Time=%f Socket %s -> %s\n", node_id, Simulator::Now().GetSeconds(), ns3::TcpSocket::TcpStateName[old_state], ns3::TcpSocket::TcpStateName[new_state]);
 }
 
 
 void
 HttpClientApplication::LogCwndChange(uint32_t oldCwnd, uint32_t newCwnd)
 {
-  fprintf(stderr, "Client(%d): Cwnd Changed %d -> %d\n", node_id, oldCwnd, newCwnd);
+ ///fprintf(stderr, "Client(%d): Cwnd Changed %d -> %d\n", node_id, oldCwnd, newCwnd);
   this->cur_cwnd = newCwnd;
 }
 
@@ -242,7 +244,7 @@ HttpClientApplication::TryEstablishConnection (void)
       m_socket->SetConnectCallback (MakeCallback (&HttpClientApplication::ConnectionComplete, this),
                                 MakeCallback (&HttpClientApplication::ConnectionFailed, this));
     } else {
-      fprintf(stderr, "Client(%d): ERROR: m_socket != 0\n", node_id);
+     ///fprintf(stderr, "Client(%d): ERROR: m_socket != 0\n", node_id);
     }
 
     m_socket->SetSendCallback (MakeCallback (&HttpClientApplication::OnReadySend, this));
@@ -259,10 +261,10 @@ HttpClientApplication::TryEstablishConnection (void)
       MakeCallback(&HttpClientApplication::LogCwndChange, this));
     */
 
-    fprintf(stderr, "Waiting for reply from server...\n");
+   ///fprintf(stderr, "Waiting for reply from server...\n");
 
   } else {
-    fprintf(stderr, "Keeping connection alive...\n");
+   ///fprintf(stderr, "Keeping connection alive...\n");
     OnReadySend(m_socket, 1200);
   }
 }
@@ -286,13 +288,13 @@ HttpClientApplication::StartApplication (void)
   // Create OutFile
   if (!m_outFile.empty())
   {
-    fprintf(stderr, "Client(%d): Creating outfile %s\n", node_id, m_outFile.c_str());
+   ///fprintf(stderr, "Client(%d): Creating outfile %s\n", node_id, m_outFile.c_str());
     // (re)create outfile
     FILE* fp = fopen(m_outFile.c_str(), "w");
     fclose(fp);
   }
 
-  fprintf(stderr, "Establishing connection (time=%f)...\n",Simulator::Now().GetSeconds());
+ ///fprintf(stderr, "Establishing connection (time=%f)...\n",Simulator::Now().GetSeconds());
   TryEstablishConnection();
 
   m_lastStatsReportedBytesRecv = 0;
@@ -305,7 +307,7 @@ void
 HttpClientApplication::ReportStats()
 {
   unsigned int bytes_recv_last_timespan = m_bytesRecv - m_lastStatsReportedBytesRecv;
-  unsigned int bytes_sent_last_timespan = m_bytesSent - m_lastStatsReportedBytesSent;
+  //unsigned int bytes_sent_last_timespan = m_bytesSent - m_lastStatsReportedBytesSent;
 
 
   m_currentStatsTrace(this, this->m_fileToRequest, bytes_recv_last_timespan);
@@ -316,8 +318,8 @@ HttpClientApplication::ReportStats()
 
   FILE* fp = fopen(cwnd_trace_filename.str().c_str(), "a");
 
-  fprintf(fp, "Client(%d):Time=%f,bytes_recv=%d,bytes_sent=%d,cwnd=%d;finished_download=%d-%ld;tried_connect=%d;failed_connect=%d;success_connect=%d\n",
-      node_id, Simulator::Now().GetSeconds(), bytes_recv_last_timespan, bytes_sent_last_timespan, cur_cwnd, m_finished_download, _finished_time, m_tried_connecting, m_failed_connecting, m_success_connecting);
+ ///fprintf(fp, "Client(%d):Time=%f,bytes_recv=%d,bytes_sent=%d,cwnd=%d;finished_download=%d-%ld;tried_connect=%d;failed_connect=%d;success_connect=%d\n",
+      // node_id, Simulator::Now().GetSeconds(), bytes_recv_last_timespan, bytes_sent_last_timespan, cur_cwnd, m_finished_download, _finished_time, m_tried_connecting, m_failed_connecting, m_success_connecting);
 
 
           fclose(fp);
@@ -338,7 +340,7 @@ HttpClientApplication::ReportStats()
 void
 HttpClientApplication::ConnectionClosedNormal (Ptr<Socket> socket)
 {
-  fprintf(stderr, "Client(%d): Socket was closed normally\n", node_id);
+ ///fprintf(stderr, "Client(%d): Socket was closed normally\n", node_id);
   // socket is in CLOSE_WAIT state --> close the socket here --> socket will be in LAST_ACK state
   socket->Close();
   socket->SetCloseCallbacks(MakeNullCallback<void, Ptr<Socket> > (),MakeNullCallback<void, Ptr<Socket> > ());
@@ -349,7 +351,7 @@ HttpClientApplication::ConnectionClosedNormal (Ptr<Socket> socket)
 void
 HttpClientApplication::ConnectionClosedError (Ptr<Socket> socket)
 {
-  fprintf(stderr,"Client(%d): Socket was closed with an error, errno=%d; Trying to open it again...\n", node_id, socket->GetErrno());
+ ///fprintf(stderr,"Client(%d): Socket was closed with an error, errno=%d; Trying to open it again...\n", node_id, socket->GetErrno());
   socket->SetCloseCallbacks(MakeNullCallback<void, Ptr<Socket> > (),MakeNullCallback<void, Ptr<Socket> > ());
 
   // let's try opening the second again again in 0.5 second
@@ -375,12 +377,13 @@ HttpClientApplication::StopApplication ()
 
   if (m_socket != 0 && !m_keepAlive)
   {
-    fprintf(stderr, "Client(%d): Socket is open, closing it...\n", node_id);
+   ///fprintf(stderr, "Client(%d): Socket is open, closing it...\n", node_id);
     m_socket->Close ();
     m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
     m_socket = 0;
   } else {
-   if(m_keepAlive) fprintf(stderr, "Client(%d): We are in stop application, but keeping alive...\n", node_id);
+   if(m_keepAlive)
+    NS_LOG_DEBUG("Client(" << node_id << "): We are in stop application, but keeping alive...");
   }
 
   Simulator::Cancel (m_reportStatsEvent);
@@ -394,7 +397,7 @@ HttpClientApplication::ConnectionComplete (Ptr<Socket> socket)
   NS_LOG_FUNCTION (this << socket);
   NS_LOG_DEBUG("Client Connection Completed!");
 
-  fprintf(stderr, "Client successfully connected at time=%f\n", Simulator::Now().GetSeconds());
+ ///fprintf(stderr, "Client successfully connected at time=%f\n", Simulator::Now().GetSeconds());
 
   m_success_connecting++;
 
@@ -407,7 +410,7 @@ void
 HttpClientApplication::ConnectionFailed (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
-  fprintf(stderr, "Client(%d): ERROR: OnConnectionFailed - failed to open connection\n", node_id);
+ ///fprintf(stderr, "Client(%d): ERROR: OnConnectionFailed - failed to open connection\n", node_id);
 
   m_failed_connecting++;
 
@@ -421,7 +424,7 @@ void
 HttpClientApplication::OnReadySend (Ptr<Socket> localSocket, uint32_t txSpace)
 {
   NS_LOG_FUNCTION (this);
-  fprintf(stderr, "HttpClientApp::OnReadySend()\n");
+ ///fprintf(stderr, "HttpClientApp::OnReadySend()\n");
   if (!m_sentGetRequest)
   {
     m_sentGetRequest = true;
@@ -441,7 +444,7 @@ HttpClientApplication::DoSendGetRequest (Ptr<Socket> s, uint32_t txSpace)
 
   // Create HTTP 1.1 compatible request
   std::stringstream requestSS;
-  fprintf(stderr, "Client(%d, %f): Executing  'GET %s'\n", node_id, Simulator::Now().GetSeconds(), m_fileToRequest.c_str());
+ ///fprintf(stderr, "Client(%d, %f): Executing  'GET %s'\n", node_id, Simulator::Now().GetSeconds(), m_fileToRequest.c_str());
   requestSS << "GET " << m_fileToRequest << " HTTP/1.1" << CRLF;
   requestSS << "Host: " << m_hostName << CRLF;
   //requestSS << "Pragma: no-cache" << CRLF;
@@ -480,8 +483,13 @@ HttpClientApplication::DoSendGetRequest (Ptr<Socket> s, uint32_t txSpace)
   // so that tags added to the packet can be sent as well
   m_txTrace (p);
   // localSocket->MpTcpSocketBase::Send (p);
-  localSocket->MpTcpSocketBase::FillBuffer (buffer, requestString.length());
-  localSocket->MpTcpSocketBase::SendBufferedData ();
+  if (m_currentState != 0)
+  {
+    localSocket->MpTcpSocketBase::FillBuffer (buffer, requestString.length());
+    localSocket->MpTcpSocketBase::SendBufferedData ();
+  }
+  else
+    StopApplication ();
 
   m_bytesSent += requestString.length();
 
@@ -548,7 +556,7 @@ HttpClientApplication::ParseResponseHeader(const uint8_t* buffer, size_t len, in
 
       if (iStatusCode == 404)
       {
-        fprintf(stderr, "Client(%d): ParseHeader: Status Code 404, not found!\n", node_id);
+       ///fprintf(stderr, "Client(%d): ParseHeader: Status Code 404, not found!\n", node_id);
       } else
       {
         // find Content-Length
@@ -582,29 +590,29 @@ HttpClientApplication::ParseResponseHeader(const uint8_t* buffer, size_t len, in
               pos = p - strbuffer;
               return pos+4; // +4 to skip CRLFCRLF
             } else {
-              fprintf(stderr, "ERROR: could not find where body begins\n");
+             ///fprintf(stderr, "ERROR: could not find where body begins\n");
             }
           }
           else
           {
-            fprintf(stderr, "ERROR: No CRLF found?!?\n");
+           ///fprintf(stderr, "ERROR: No CRLF found?!?\n");
           }
 
         } else
         {
-          fprintf(stderr, "ERROR: Server did not reply Content-Length Header field\n");
+         ///fprintf(stderr, "ERROR: Server did not reply Content-Length Header field\n");
         }
       }
 
     } else
     {
-      fprintf(stderr, "Invalid HTTP Response, %s\n", strbuffer);
+     ///fprintf(stderr, "Invalid HTTP Response, %s\n", strbuffer);
     }
 
   } else
   {
-    fprintf(stderr, "Not sure what this response header means\n");
-    fprintf(stderr, "Result=%s\n", strbuffer);
+   ///fprintf(stderr, "Not sure what this response header means\n");
+   ///fprintf(stderr, "Result=%s\n", strbuffer);
   }
 
 
@@ -618,7 +626,7 @@ HttpClientApplication::OnFileReceived(unsigned status, unsigned length)
   if (!m_active)
     return;
 
-  fprintf(stderr, "Client(%d, %f): File received\n", node_id, Simulator::Now().GetSeconds());
+ ///fprintf(stderr, "Client(%d, %f): File received\n", node_id, Simulator::Now().GetSeconds());
 
   m_finished_download = true;
   _finished_time = Simulator::Now().GetMilliSeconds ();
@@ -656,7 +664,7 @@ HttpClientApplication::HandleRead (Ptr<Socket> s)
   NS_LOG_FUNCTION(this << socket << "URL=" << m_fileToRequest);
   if (m_finished_download)
   {
-    fprintf(stderr, "Client(%d)::HandleRead(time=%f) Client is asked to HandleRead although it should have finished already...\n", node_id, Simulator::Now().GetSeconds());
+   ///fprintf(stderr, "Client(%d)::HandleRead(time=%f) Client is asked to HandleRead although it should have finished already...\n", node_id, Simulator::Now().GetSeconds());
     return;
   }
 
@@ -733,8 +741,8 @@ HttpClientApplication::HandleRead (Ptr<Socket> s)
     }
     else if (m_bytesRecv > requested_content_length)
     {
-      fprintf(stderr, "Client(%d)::HandleRead(time=%f) Expected only %d bytes, but received already %d bytes\n",
-        node_id, Simulator::Now().GetSeconds(), requested_content_length, m_bytesRecv);
+     ///fprintf(stderr, "Client(%d)::HandleRead(time=%f) Expected only %d bytes, but received already %d bytes\n",
+        // node_id, Simulator::Now().GetSeconds(), requested_content_length, m_bytesRecv);
     }
 
   }

@@ -132,6 +132,7 @@ protected:
   int64_t m_freezeStartTime;
 
   uint32_t m_userId;
+  uint32_t m_videoId;
 
   static std::string alphabet;
 
@@ -178,10 +179,11 @@ protected:
   virtual void
   DownloadSegment();
 
-  TracedCallback<Ptr<ns3::Application> /*App*/, unsigned int /* UserId */, unsigned int /*SegmentNr*/,
+  //Vitalii: removed dependencyIDs to fit the videoID. Dunno how to make more than 8 params in a traced callback :)
+  TracedCallback<Ptr<ns3::Application> /*App*/, unsigned int /* UserId */, unsigned int /* videoId */, unsigned int /*SegmentNr*/,
                 std::string /*RepresentationId*/, unsigned int /* experiendedBitrate */,
-                unsigned int /*StallingTime*/, unsigned int /* buffer level */,
-                std::vector<std::string> /*DependencyIds*/> m_playerTracer;
+                unsigned int /*StallingTime*/, unsigned int /* buffer level *//*,
+                std::vector<std::string> DependencyIds*/> m_playerTracer;
 
 
 

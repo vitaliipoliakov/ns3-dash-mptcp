@@ -52,8 +52,10 @@ DSNMapping::~DSNMapping()
   subflowSeqNumber = 0;
   dupAckCount = 0;
 //  if (packet != 0)
-  //delete[] packet;
+  // delete[] packet;
   //packet = 0;
+  //if (payload != 0) // maybe it causes double free
+    delete[] payload;
 }
 
 bool
@@ -197,6 +199,7 @@ DataBuffer::RetrieveRealData(uint32_t size)
     }
 
   uint8_t *payload = new uint8_t[quantity]; // should I delete this afterwards?
+  // uint8_t *payload[quantity];
   // std::cout << "\nretrieving buffer of size:" << quantity << "|";
   for (uint32_t i = 0; i < quantity; i++)
     {
@@ -255,11 +258,11 @@ DataBuffer::CreatePacket(uint32_t size)
   //Ptr<Packet> pkt = new Packet(ptrBuffer, quantity);
   Ptr<Packet> pkt = Create<Packet>(ptrBuffer, quantity);
   // Ptr<Packet> pkt = Create<Packet>(quantity);
-  //delete[] ptrBuffer;
+  delete[] ptrBuffer;
   //ptrBuffer = 0; // MKS
 
-  uint8_t *bf = new uint8_t[quantity];
-  pkt->CopyData(bf, quantity);
+  // uint8_t *bf = new uint8_t[quantity]; // leaks memory and probably not needed
+  // pkt->CopyData(bf, quantity);
 
 
   NS_LOG_INFO("DataBuffer::CreatePacket -> freeSpaceSize == "<< bufMaxSize - (uint32_t) buffer.size() );

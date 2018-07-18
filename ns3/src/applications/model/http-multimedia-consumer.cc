@@ -51,6 +51,8 @@ MultimediaConsumer<Parent>::GetTypeId(void)
       .template AddConstructor<MultimediaConsumer>()
       .template AddAttribute("MpdFileToRequest", "URI to the MPD File to Request", StringValue("/"),
                     MakeStringAccessor(&MultimediaConsumer<Parent>::m_mpdUrl), MakeStringChecker())
+      .template AddAttribute("VideoId", "Video ID", UintegerValue(1),
+                    MakeUintegerAccessor(&MultimediaConsumer<Parent>::m_videoId), MakeUintegerChecker<uint32_t>())
       .template AddAttribute("ScreenWidth", "Width of the screen", UintegerValue(1920),
                     MakeUintegerAccessor(&MultimediaConsumer<Parent>::m_screenWidth), MakeUintegerChecker<uint32_t>())
       .template AddAttribute("ScreenHeight", "Height of the screen", UintegerValue(1080),
@@ -126,7 +128,7 @@ MultimediaConsumer<Parent>::StartApplication() // Called at time specified by St
     // now find the next / to extract the hostname
     int pos = new_url.find("/");
     std::string hostname = new_url.substr(0,pos);
-    fprintf(stderr, "Client(%d): Hostname = %s\n", super::node_id, hostname.c_str());
+   ///fprintf(stderr, "Client(%d): Hostname = %s\n", super::node_id, hostname.c_str());
 
     super::SetRemote(Ipv4Address(hostname.c_str()),80);
     mpd_request_name = new_url.substr(pos+1);
@@ -172,7 +174,7 @@ MultimediaConsumer<Parent>::StartApplication() // Called at time specified by St
 
   // do base stuff
   super::StartApplication();
-  fprintf(stderr, "Client(%d): Done starting multimedia application!\n", super::node_id);
+ ///fprintf(stderr, "Client(%d): Done starting multimedia application!\n", super::node_id);
 }
 
 
@@ -183,7 +185,7 @@ MultimediaConsumer<Parent>::StopApplication() // Called at time specified by Sto
 {
   NS_LOG_FUNCTION_NOARGS();
 
-  fprintf(stderr, "Client(%d): Stopping app...\n", super::node_id);
+ ///fprintf(stderr, "Client(%d): Stopping app...\n", super::node_id);
 
   // Cancelling Event Timers
   m_consumerLoopTimer.Cancel();
@@ -204,8 +206,10 @@ MultimediaConsumer<Parent>::StopApplication() // Called at time specified by Sto
       //ok check how many segments we have not consumed
       while(totalConsumedSegments < mPlayer->GetAdaptationLogic()->getTotalSegments())
       {
-        m_playerTracer(this, m_userId, totalConsumedSegments++,  "0",
-                       0, 0, 0, std::vector<std::string>());
+        // m_playerTracer(this, m_userId, totalConsumedSegments++,  "0",
+        //                0, 0, 0, std::vector<std::string>());
+        m_playerTracer(this, m_userId, 0, totalConsumedSegments++,  "0",
+                       0, 0, 0);
       }
     }
   }
@@ -289,7 +293,7 @@ template<class Parent>
 void
 MultimediaConsumer<Parent>::OnMpdFile()
 {
-  fprintf(stderr, "Client(%d): On MPD File...\n", super::node_id);
+ ///fprintf(stderr, "Client(%d): On MPD File...\n", super::node_id);
 
   // check if file was gziped, if not, we use it as is
   if (m_tempMpdFile.find(".gz") != std::string::npos)
@@ -559,7 +563,7 @@ MultimediaConsumer<Parent>::OnMpdFile()
   std::string rmdir_cmd = "rm -rf " + m_tempDir;
   if (system(rmdir_cmd.c_str()) != 0)
   {
-    fprintf(stderr, "Error: could not delete directory '%s'.\n", m_tempDir.c_str());
+   ///fprintf(stderr, "Error: could not delete directory '%s'.\n", m_tempDir.c_str());
   }
 }
 
@@ -569,7 +573,7 @@ template<class Parent>
 void
 MultimediaConsumer<Parent>::OnMultimediaFile()
 {
-  fprintf(stderr, "Client(%d): On Multimedia File '%s'\n", super:: node_id,super::m_fileToRequest.c_str());
+ ///fprintf(stderr, "Client(%d): On Multimedia File '%s'\n", super:: node_id,super::m_fileToRequest.c_str());
 
   if (!super::m_active)
     return;
@@ -601,7 +605,7 @@ MultimediaConsumer<Parent>::OnMultimediaFile()
     strs << Simulator::Now().GetSeconds();
     std::string now = strs.str();
 
-    fprintf(stderr, "Node id: %d %s Last Download Speed = %f kBit/s\n", super::node_id, now.c_str(), super::lastDownloadBitrate/1000.0);
+   ///fprintf(stderr, "Node id: %d %s Last Download Speed = %f kBit/s\n", super::node_id, now.c_str(), super::lastDownloadBitrate/1000.0);
     
 
     // check if there is enough space in buffer
@@ -633,7 +637,7 @@ MultimediaConsumer<Parent>::OnFileReceived(unsigned status, unsigned length)
   // make sure that the file is being properly retrieved by the super class first!
   super::OnFileReceived(status, length);
 
-  fprintf(stderr, "Client: On File Received called\n");
+ ///fprintf(stderr, "Client: On File Received called\n");
 
   if (!m_mpdParsed)
   {
@@ -703,7 +707,7 @@ MultimediaConsumer<Parent>::DownloadSegment()
   requestedSegmentNr = 0;
 
   requestedSegmentURL = mPlayer->GetAdaptationLogic()->GetNextSegment(&requestedSegmentNr, &requestedRepresentation, &m_hasDownloadedAllSegments);
-  fprintf(stderr, "Multimediaconsumer::Downloadsegment()\n");
+ ///fprintf(stderr, "Multimediaconsumer::Downloadsegment()\n");
   if(m_hasDownloadedAllSegments) // DONE
   {
     NS_LOG_DEBUG("No more segments available for download!\n");
@@ -814,8 +818,8 @@ MultimediaConsumer<Parent>::consume()
     }
 
     //fprintf(stderr,  "Current Buffer Level: %f\n", mPlayer->GetBufferLevel());
-    m_playerTracer(this, m_userId, entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
-      freezeTime, (unsigned int) (mPlayer->GetBufferLevel()), entry.depIds);
+    m_playerTracer(this, m_userId, m_videoId, entry.segmentNumber, entry.repId, entry.experienced_bitrate_bit_s,
+      freezeTime, (unsigned int) (mPlayer->GetBufferLevel())/*, entry.depIds*/);
 
     totalConsumedSegments++;
     return consumedSeconds;

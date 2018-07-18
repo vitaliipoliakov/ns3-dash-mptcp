@@ -400,7 +400,7 @@ MpTcpSocketBase::ProcessEstablished(uint8_t sFlowIdx, Ptr<Packet> packet, const 
     { // Received RST or the TCP flags is invalid, in either case, terminate this socket
       if (tcpflags != TcpHeader::RST)
         { // this must be an invalid flag, send reset
-          NS_LOG_LOGIC ("Illegal flag " << tcpflags << " received. Reset packet is sent."); //
+          NS_LOG_UNCOND ("Illegal flag " << tcpflags << " received. Reset packet is sent."); //
           NS_LOG_UNCOND(Simulator::Now().GetSeconds() << " [" << m_node->GetId() << "] (" << (int)sFlowIdx << ") Bad FtcpFlag received - SendRST");
           cout << Simulator::Now().GetSeconds() << " [" << m_node->GetId() << "] (" << (int)sFlowIdx << ") {"<< flowId <<"} SendRST(ProcessEstablished)" << endl;
           SendRST(sFlowIdx);
@@ -606,7 +606,7 @@ MpTcpSocketBase::ProcessSynSent(uint8_t sFlowIdx, Ptr<Packet> packet, const TcpH
     { // Other in-sequence input
       if (tcpflags != TcpHeader::RST)
         { // When (1) rx of FIN+ACK; (2) rx of FIN; (3) rx of bad flags
-          NS_LOG_LOGIC ("Illegal flag " << std::hex << static_cast<uint32_t> (tcpflags) << std::dec << " received. Reset packet is sent."); //
+          NS_LOG_UNCOND ("Illegal flag " << std::hex << static_cast<uint32_t> (tcpflags) << std::dec << " received. Reset packet is sent."); //
           NS_LOG_UNCOND(Simulator::Now().GetSeconds() << " [" << m_node->GetId() << "] (" << (int)sFlowIdx << ") Bad FtcpFlag received - SendRST");
           cout << Simulator::Now().GetSeconds() << " [" << m_node->GetId() << "] (" << (int)sFlowIdx << ") {"<< flowId <<"} SendRST(ProcessSynSent)" << endl;
           SendRST(sFlowIdx);
@@ -672,7 +672,7 @@ MpTcpSocketBase::ProcessSynRcvd(uint8_t sFlowIdx, Ptr<Packet> packet, const TcpH
     { // Other in-sequence input
       if (tcpflags != TcpHeader::RST)
         { // When (1) rx of SYN+ACK; (2) rx of FIN; (3) rx of bad flags
-          NS_LOG_LOGIC ("Illegal flag " << tcpflags << " received. Reset packet is sent.");
+          NS_LOG_UNCOND ("Illegal flag " << tcpflags << " received. Reset packet is sent.");
 //          if (m_endPoint)
 //            {
 //              m_endPoint->SetPeer(InetSocketAddress::ConvertFrom(fromAddress).GetIpv4(),
@@ -1450,6 +1450,7 @@ MpTcpSocketBase::DiscardUpTo(uint8_t sFlowIdx, uint32_t ack)
           //delete ptrDSN->packet;
           //ptrDSN->packet = 0;
           next = sFlow->mapDSN.erase(current);
+          // delete[] ptrDSN->payload;
           delete ptrDSN;
         }
       current = next;
@@ -2275,7 +2276,7 @@ MpTcpSocketBase::GetRcvBufSize(void) const
 
 
 /** 
-Receive an actual packet with its payload. Done in a hacky way -  
+Vitalii: Receive an actual packet with its payload. Done in a hacky way -  
 by reading the actual payload (which has just been extracted from 
 the incoming packet), and then packing it back into another packet 
 without explicitely attributing any tags/headers/etc. I did it 
@@ -2288,7 +2289,9 @@ MpTcpSocketBase::Recv()
   // Vitalii: better to check if 1400 bytes is a good amount to transmit each time
   // std::cout << "Need to check what's the max size to retreive at mp-tcp-socket-base!\n";
   uint32_t toRead = std::min(recvingBuffer.PendingData(), uint32_t(1400));
-  Ptr<Packet> outPacket = Create<Packet> (recvingBuffer.RetrieveRealData(toRead), toRead);
+  uint8_t *rcvd = recvingBuffer.RetrieveRealData(toRead);
+  Ptr<Packet> outPacket = Create<Packet> (rcvd, toRead);
+  delete[] rcvd; //needs to be done as *rcvd was allocated with 'new' 
   // std::cout << "\n\n has data after: " << recvingBuffer.PendingData() << "\n";
 
   return outPacket;
@@ -2680,12 +2683,13 @@ MpTcpSocketBase::ReadUnOrderedData(Ptr<Packet> packet)
           NS_ASSERT(ptrDSN->dataSeqNumber == nextRxSequence);
 
           //uint32_t amount = recvingBuffer->Add(ptrDSN->packet, ptrDSN->dataLevelLength);
-          uint8_t* _buf = (uint8_t*) malloc ((size_t) ptrDSN->dataLevelLength+1); // Vitalii: I shouldn't use my packet here!
+          // uint8_t* _buf = (uint8_t*) malloc ((size_t) ptrDSN->dataLevelLength+1); // Vitalii: I shouldn't use my packet here!
+          // uint8_t *_buf = new uint8_t[ptrDSN->dataLevelLength+1];
           // uint32_t _siz = packet->CopyData(_buf, ptrDSN->dataLevelLength);
-          _buf = ptrDSN->payload;
+          // _buf = ptrDSN->payload;
           // uint32_t amount = recvingBuffer.Add(ptrDSN->dataLevelLength); //dude, WTF? Why handicap the implementation?
-          uint32_t amount = recvingBuffer.AddRealData(_buf, ptrDSN->dataLevelLength); // Vitalii: We need to add real data, not a default alphabet!
-          free(_buf);
+          uint32_t amount = recvingBuffer.AddRealData(ptrDSN->payload, ptrDSN->dataLevelLength); // Vitalii: We need to add real data, not a default alphabet!
+          // free(_buf);
           if (amount == 0)
             { // Receive buffer is full.
               NS_FATAL_ERROR("In our model receive buffer never get full");
@@ -3522,7 +3526,8 @@ MpTcpSocketBase::AdvertiseAvailableAddresses()
     }
   else
     {
-      NS_FATAL_ERROR("Need to be Looked...");
+      // NS_FATAL_ERROR("Need to be Looked...");
+      NS_LOG_UNCOND ("Vitalii: mp is disabled but mptcp wants to advertise addresses; let\'s see if disabling the fatal error helps");
     }
 }
 
@@ -3566,12 +3571,12 @@ MpTcpSocketBase::IsThereRoute(Ipv4Address src, Ipv4Address dst)
       route = ipv4->GetRoutingProtocol()->RouteOutput(Ptr<Packet>(), l3Header, oif, errno_);
       if ((route != 0)/* && (src == route->GetSource())*/)
         {
-          NS_LOG_DEBUG ("IsThereRoute -> Route from src "<< src << " to dst " << dst << " oit ["<< oif->GetIfIndex()<<"], exist  Gateway: " << route->GetGateway());
+          // NS_LOG_DEBUG ("IsThereRoute -> Route from src "<< src << " to dst " << dst << " oit ["<< oif->GetIfIndex()<<"], exist  Gateway: " << route->GetGateway());
           found = true;
         }
       else
         {
-          NS_LOG_DEBUG ("IsThereRoute -> No Route from srcAddr "<< src << " to dstAddr " << dst << " oit ["<<oif->GetIfIndex()<<"], exist Gateway: " << route->GetGateway());
+          // NS_LOG_DEBUG ("IsThereRoute -> No Route from srcAddr "<< src << " to dstAddr " << dst << " oit ["<<oif->GetIfIndex()<<"], exist Gateway: " << route->GetGateway());
         }
     }
   return found;

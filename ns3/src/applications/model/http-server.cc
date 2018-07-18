@@ -216,7 +216,7 @@ HttpServerApplication::StartApplication (void)
   std::ifstream infile(m_metaDataFile.c_str());
   if (!infile.is_open())
   {
-    fprintf(stderr, "HttpServerFakeClientSocket: Error opening %s\n", m_metaDataFile.c_str());
+    NS_LOG_INFO ("HttpServerFakeClientSocket: Error opening " << m_metaDataFile.c_str());
     return;
   }
 
@@ -234,7 +234,7 @@ HttpServerApplication::StartApplication (void)
         //fprintf(stderr, "First=%s,Second=%s\n", line_filename.c_str(), line_filesize.c_str());
         m_fileSizes[m_contentDir + m_metaDataContentDirectory + line_filename] = atoi(line_filesize.c_str());
 
-        fprintf(stderr, "Added '%s' to the store!\n", (m_contentDir + m_metaDataContentDirectory + line_filename).c_str());
+        NS_LOG_INFO ("Added '" << (m_contentDir + m_metaDataContentDirectory + line_filename).c_str() << "' to the store!\n");
 
         m_virtualFiles.push_back(m_contentDir + m_metaDataContentDirectory + line_filename);
       }
@@ -268,7 +268,7 @@ HttpServerApplication::StopApplication ()
 void
 HttpServerApplication::OnReadySend(Ptr<Socket> socket, unsigned int txSize)
 {
-  fprintf(stderr, "Server says it is ready to send something now...\n");
+  NS_LOG_INFO ("Server says it is ready to send something now...");
 }
 
 

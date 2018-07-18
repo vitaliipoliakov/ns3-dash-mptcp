@@ -447,7 +447,7 @@ DASHFakeServerApplication::StartApplication (void)
 
     // compress
     std::string compressedMpdData = zlib_compress_string(mpdData);
-    fprintf(stderr, "Size of compressed = %ld, uncompressed = %ld\n", compressedMpdData.length(), mpdData.length());
+    NS_LOG_INFO ("Size of compressed = " << compressedMpdData.length() << ", uncompressed = " << mpdData.length());
 
 
     std::stringstream SSMpdFilename;
@@ -456,7 +456,7 @@ DASHFakeServerApplication::StartApplication (void)
 
     m_fileSizes[SSMpdFilename.str()] = compressedMpdData.size();
 
-    fprintf(stderr, "Adding '%s' to m_fileSizes with size %ld\n", SSMpdFilename.str().c_str(), compressedMpdData.size());
+    NS_LOG_INFO ("Adding " << SSMpdFilename.str().c_str() << " to m_fileSizes with size " << compressedMpdData.size());
 
 
     m_mpdFileContents[SSMpdFilename.str()] = compressedMpdData;
@@ -480,13 +480,15 @@ DASHFakeServerApplication::StopApplication ()
     m_socket->Close ();
     m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
   }
+
+  this->m_virtualFiles.clear (); // Vitalii: let's see if it helps with memory leaking
 }
 
 
 void
 DASHFakeServerApplication::OnReadySend(Ptr<Socket> socket, unsigned int txSize)
 {
-  fprintf(stderr, "Server says it is ready to send something now...\n");
+  NS_LOG_INFO ("Server says it is ready to send something now...");
 }
 
 
@@ -503,7 +505,7 @@ void
 DASHFakeServerApplication::ConnectionAccepted (Ptr<Socket> s, const Address& address)
 {
   NS_LOG_FUNCTION (this << s << address);
-  fprintf(stderr, "DASH Fake Server: Connection Accepted!\n");
+  NS_LOG_INFO ("DASH Fake Server: Connection Accepted!");
   Ptr<MpTcpSocketBase> socket = DynamicCast<MpTcpSocketBase> (s);
 
   uint64_t socket_id = RegisterSocket(socket);
@@ -541,9 +543,10 @@ DASHFakeServerApplication::DoFinishSocket(uint64_t socket_id)
 {
   if (m_activeClients.find(socket_id) != m_activeClients.end())
   {
-    //HttpServerFakeClientSocket* tmp = m_activeClients[socket_id];
-    //m_activeClients.erase(socket_id);
-    //delete tmp; // TODO: CHECK
+    HttpServerFakeClientSocket* tmp = m_activeClients[socket_id];
+    NS_LOG_INFO ("DASH virtual server (not sure which exactly :/ ) is going to delete a terminated socket " << socket_id);
+    m_activeClients.erase(socket_id);
+    delete tmp; // TODO: CHECK
   }
 }
 

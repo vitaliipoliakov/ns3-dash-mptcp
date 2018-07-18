@@ -78,14 +78,14 @@ DASHPlayerTracer::Install(const NodeContainer& nodes, const std::string& file)
     return;
   }
 
-  fprintf(stderr, "Installing tracers on all nodes in nodecontainer...\n");
+  NS_LOG_INFO ("Installing tracers on all nodes in nodecontainer...");
   // for each node in the node container, install the tracer with that one output stream
   for (NodeContainer::Iterator node = nodes.Begin(); node != nodes.End(); node++) {
     Ptr<DASHPlayerTracer> trace = Install(*node, os);
     tracers.push_back(trace);
     m_allTracers.push_back(trace);
   }
-  fprintf(stderr, "Done!\n");
+  NS_LOG_INFO ("Done!");
 
   if (tracers.size() > 0) {
     tracers.front()->PrintHeader(*os);
@@ -177,31 +177,35 @@ void
 DASHPlayerTracer::PrintHeader(std::ofstream& os) const
 {
   os << "Time"
-     << "\t"
-     << "Node\tUserId"
-     << "\t"
+     << ","
+     << "Node,UserId"
+     << ","
+     << "VideoId"
+     << ","
      << "SegmentNumber"
-     << "\t"
+     << ","
      << "SegmentRepID"
-     << "\t"
+     << ","
      << "SegmentExperiencedBitrate(bit/s)"
-     << "\t"
+     << ","
      << "BufferLevel(s)"
-     << "\t"
+     << ","
      << "StallingTime(msec)"
-     << "\t"
-     << "SegmentDepIds";
+     /*<< ","
+     << "SegmentDepIds"*/;
 }
 
 void
-DASHPlayerTracer::ConsumeStats(Ptr<ns3::Application> app, unsigned int userId,
+DASHPlayerTracer::ConsumeStats(Ptr<ns3::Application> app, unsigned int userId, unsigned int videoId,
                                unsigned int segmentNr, std::string representationId,
                                unsigned int segmentExperiencedBitrate,
-                               unsigned int stallingTime, unsigned int bufferLevel,
-                               std::vector<std::string> dependencyIds)
+                               unsigned int stallingTime, unsigned int bufferLevel/*,
+                               std::vector<std::string> dependencyIds*/)
 {
   std::string depIdStr = "";
 
+  //Vitalii: removed that
+  /*
   for(std::vector<std::string>::iterator it = dependencyIds.begin(); it != dependencyIds.end(); it++ )
   {
     if(depIdStr.compare ("") == 0)
@@ -209,10 +213,11 @@ DASHPlayerTracer::ConsumeStats(Ptr<ns3::Application> app, unsigned int userId,
     else
       depIdStr.append (","+*it);
   }
+  */
 
-  (*m_os) << Simulator::Now().ToDouble(Time::S) << "\t" << m_node << "\t" << userId << "\t" /*<< app->GetId() << "\t"*/
-        << segmentNr << "\t" << representationId << "\t"
-        << segmentExperiencedBitrate << "\t" << bufferLevel << "\t" << stallingTime << "\t" << depIdStr << "\n";
+  (*m_os) << Simulator::Now().ToDouble(Time::S) << "," << m_node << "," << userId << "," << videoId << ","/*<< app->GetId() << "\t"*/
+        << segmentNr << "," << representationId << ","
+        << segmentExperiencedBitrate << "," << bufferLevel << "," << stallingTime /*<< "," << depIdStr*/ << "\n";
 }
 
 

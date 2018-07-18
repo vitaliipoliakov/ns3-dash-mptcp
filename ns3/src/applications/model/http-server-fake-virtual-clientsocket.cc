@@ -36,7 +36,7 @@ HttpServerFakeVirtualClientSocket::HttpServerFakeVirtualClientSocket(uint64_t so
 
 HttpServerFakeVirtualClientSocket::~HttpServerFakeVirtualClientSocket()
 {
-  fprintf(stderr, "Server(%ld): Destructing Fake Virtual Client Socket(%ld)...\n", m_socket_id, m_socket_id);
+  ///fprintf(stderr, "Server(%ld): Destructing Fake Virtual Client Socket(%ld)...\n", m_socket_id, m_socket_id);
   this->m_bytesToTransmit.clear();
 }
 
@@ -46,11 +46,11 @@ HttpServerFakeVirtualClientSocket::~HttpServerFakeVirtualClientSocket()
 void
 HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Address from, std::string data)
 {
-  fprintf(stderr, "VirtualServer(%ld)::FinishedIncomingData(socket,data=str(%ld))\n", m_socket_id, data.length());
+  ///fprintf(stderr, "VirtualServer(%ld)::FinishedIncomingData(socket,data=str(%ld))\n", m_socket_id, data.length());
   // now parse this request (TODO) and reply
   std::string filename = m_content_dir  + ParseHTTPHeader(data);
 
-  fprintf(stderr, "[%fs] VirtualServer(%ld): Request Opening '%s'\n", Simulator::Now().GetSeconds(), m_socket_id, filename.c_str());
+  ///fprintf(stderr, "[%fs] VirtualServer(%ld): Request Opening '%s'\n", Simulator::Now().GetSeconds(), m_socket_id, filename.c_str());
 
   long filesize = GetFileSize(filename);
   /**
@@ -64,7 +64,7 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
 
   if (filesize == -1)
   {
-    fprintf(stderr, "VirtualServer(%ld): Error, '%s' not found!\n", m_socket_id, filename.c_str());
+    ///fprintf(stderr, "VirtualServer(%ld): Error, '%s' not found!\n", m_socket_id, filename.c_str());
     // return 404
     std::string replyString("HTTP/1.1 404 Not Found\r\n\r\n");
 
@@ -94,7 +94,7 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
     {
       // handle virtual payload
       // fill tmp with some random data
-      fprintf(stderr, "VirtualServer(%ld): Generating virtual payload with size %ld ...\n", m_socket_id, filesize);
+      ///fprintf(stderr, "VirtualServer(%ld): Generating virtual payload with size %ld ...\n", m_socket_id, filesize);
       for (int i = 0; i < 4096; i++)
       {
         tmp[i] = (uint8_t)rand();
@@ -115,7 +115,7 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
       }
     } else if (m_virtualHostedFiles.find(filename) != m_virtualHostedFiles.end())
     {
-      fprintf(stderr, "VirtualServer(%ld): Opening file in memory with size %ld ...\n", m_socket_id, filesize);
+      ///fprintf(stderr, "VirtualServer(%ld): Opening file in memory with size %ld ...\n", m_socket_id, filesize);
       // handle actual payload
 
       std::string bytes_memory = m_virtualHostedFiles[filename];
@@ -124,7 +124,7 @@ HttpServerFakeVirtualClientSocket::FinishedIncomingData(Ptr<Socket> socket, Addr
 
     } else
     {
-      fprintf(stderr, "VirtualServer(%ld): Opening file on disk with size %ld ...\n", m_socket_id, filesize);
+      ///fprintf(stderr, "VirtualServer(%ld): Opening file on disk with size %ld ...\n", m_socket_id, filesize);
       // handle actual payload
       FILE* fp = fopen(filename.c_str(), "rb");
 

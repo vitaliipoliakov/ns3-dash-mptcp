@@ -122,10 +122,10 @@ private:
   Connect();
 
   void
-  ConsumeStats(Ptr<ns3::Application> app, unsigned int userId,
+  ConsumeStats(Ptr<ns3::Application> app, unsigned int userId, unsigned int videoId,
                                unsigned int segmentNr, std::string representationId,
                                unsigned int segmentExperiencedBitrate,
-                               unsigned int stallingTime, unsigned int bufferLevel, std::vector<std::string> dependencyIds);
+                               unsigned int stallingTime, unsigned int bufferLevel/*, std::vector<std::string> dependencyIds*/);
 
 private:
   std::string m_node;

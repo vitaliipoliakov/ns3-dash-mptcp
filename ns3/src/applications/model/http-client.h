@@ -205,6 +205,8 @@ private:
   uint32_t m_lastStatsReportedBytesRecv;
   uint32_t m_lastStatsReportedBytesSent;
 
+  ns3::TcpSocket::TcpStates_t m_currentState;
+
   bool m_sentGetRequest; //!< Indicates whether a GET request has been sent yet or not
 
 
